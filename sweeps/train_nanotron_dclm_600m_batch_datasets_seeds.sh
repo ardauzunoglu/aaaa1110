@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BASE_SCRIPT="${ROOT_DIR}/train_nanotron_dclm_600m.sh"
+
+if [[ ! -f "${BASE_SCRIPT}" ]]; then
+  echo "Base launcher not found at ${BASE_SCRIPT}" >&2
+  exit 1
+fi
+
+DATASET_SPECS=(
+  #"ardauzunoglu/dclm-6.7b-retok:::6367"
+  #"ardauzunoglu/dclm-6.7b-c4-rewritten-6.7b-retok-v2:::12720"
+  #"ardauzunoglu/dclm-6.7b-c4-originals-6.7b-retok:::12626"
+  #"ardauzunoglu/dclm-13.4b-retok:::12720"
+  #"ardauzunoglu/dclm-6.7b-c4-rewritten-6.7b-retok-smollm360m:::12720"
+  #"ardauzunoglu/c4-rewritten-6.7b-retok-smollm360m:::6353"
+  #"ardauzunoglu/c4-rewritten-6.7b-retok:::6353"
+  #"ardauzunoglu/c4-originals-6.7b-retok:::6259"
+  #"ardauzunoglu/c4-rewrriten-table-prompt-6.7b:::6353"
+  #"ardauzunoglu/dclm-6.7b-c4-rewrriten-table-prompt-6.7b-retok:::12720"
+  #"ardauzunoglu/c4-rewrriten-table-prompt-6.7b-dpoed:::6353"
+  "ardauzunoglu/dclm-6.7b-c4-rewrriten-table-prompt-6.7b-dpoed-retok:::12720"
+)
+
+SEEDS=(
+  #42
+  #1000
+  2026
+  #1234321
+  #123454321
+)
+
+RUN_NAME_PREFIX="${RUN_NAME_PREFIX:-llama2_600m_batch}"
+DRY_RUN="${DRY_RUN:-0}"
+
+if (( ${#DATASET_SPECS[@]} == 0 )); then
+  echo "DATASET_SPECS is empty. Edit ${BASH_SOURCE[0]} and add dataset:::train_steps entries." >&2
+  exit 1
+fi
+
+if (( ${#SEEDS[@]} == 0 )); then
+  echo "SEEDS is empty. Edit ${BASH_SOURCE[0]} and add at least one seed." >&2
+  exit 1
+fi
+
+sanitize_for_run_name() {
+  local raw="$1"
+  raw="${raw##*/}"
+  raw="${raw//[^[:alnum:]]/_}"
+  raw="${raw##_}"
+  raw="${raw%%_}"
+  if [[ -z "${raw}" ]]; then
+    raw="dataset"
+  fi
+  printf '%s' "${raw}"
+}
+
+for dataset_spec in "${DATASET_SPECS[@]}"; do
+  if [[ "${dataset_spec}" != *":::"* ]]; then
+    echo "Invalid DATASET_SPECS entry '${dataset_spec}'. Expected hf_dataset_name:::train_steps" >&2
+    exit 1
+  fi
+
+  hf_dataset_name="${dataset_spec%%:::*}"
+  train_steps="${dataset_spec##*:::}"
+
+  if [[ -z "${hf_dataset_name}" ]]; then
+    echo "Invalid DATASET_SPECS entry '${dataset_spec}': dataset name is empty." >&2
+    exit 1
+  fi
+
+  if ! [[ "${train_steps}" =~ ^[0-9]+$ ]]; then
+    echo "Invalid DATASET_SPECS entry '${dataset_spec}': train_steps must be an integer." >&2
+    exit 1
+  fi
+
+  dataset_slug="$(sanitize_for_run_name "${hf_dataset_name}")"
+
+  for seed in "${SEEDS[@]}"; do
+    if ! [[ "${seed}" =~ ^[0-9]+$ ]]; then
+      echo "Invalid seed '${seed}': seeds must be integers." >&2
+      exit 1
+    fi
+
+    run_name="${RUN_NAME_PREFIX}_${dataset_slug}_steps${train_steps}_seed${seed}"
+
+    echo "Launching dataset=${hf_dataset_name} train_steps=${train_steps} seed=${seed} run_name=${run_name}"
+
+    if [[ "${DRY_RUN}" == "1" ]]; then
+      continue
+    fi
+
+    HF_DATASET_NAME="${hf_dataset_name}" \
+    TRAIN_STEPS="${train_steps}" \
+    SEED="${seed}" \
+    RUN_NAME="${run_name}" \
+      bash "${BASE_SCRIPT}" "$@"
+  done
+done
