@@ -98,7 +98,7 @@ for MODEL_DIR in "${MODEL_DIRS[@]}"; do
     -m examples.llama.convert_nanotron_to_hf \
       --checkpoint_path "${CKPT_PATH}" \
       --save_path "${MODEL_SAVE_PATH}" \
-      --tokenizer_name "${TOKENIZER_NAME:-meta-llama/Llama-2-7b-hf}" \
+      --tokenizer_name "${TOKENIZER_NAME:-${SCRIPT_DIR}/tokenizer/llama2-7b-hf}" \
       --config_cls "${CONFIG_CLS:-LlamaConfig}" \
       "${@:2}"
 

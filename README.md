@@ -16,6 +16,7 @@ vendor/nanotron/                  # patched nanotron (use this one, not upstream
 evaluation/                       # next-token + MCQA evals run automatically at each checkpoint
 data/targets/                     # eval inputs for those checkpoint evals
 requirements.freeze.txt           # pip freeze of the known-good env (Python 3.11)
+tokenizer/llama2-7b-hf/           # Llama-2 tokenizer used for all data + runs (Llama 2 license)
 ```
 
 ## 1. Environment
@@ -34,9 +35,18 @@ flash-attn must be built against the same torch version. If it won't install, ru
 packages that change the torch version (e.g. `llm-foundry`); that broke this env before.
 
 You also need:
-- `huggingface-cli login` with access to the gated `meta-llama/Llama-2-7b-hf` tokenizer
-  and to the `ardauzunoglu/*` training datasets.
+- Internet access to Hugging Face to download the `ardauzunoglu/*` training datasets.
+  They are public, so no login is needed.
 - `wandb login`, or set `WANDB_MODE=offline` / `WANDB_MODE=disabled`.
+
+**Tokenizer.** All runs use the Llama-2 tokenizer, vocab 32000. A copy is in
+`tokenizer/llama2-7b-hf/`, and the scripts use it by default, so you don't need access to
+the gated `meta-llama/Llama-2-7b-hf` repo. It is the unmodified tokenizer from revision
+`01c7f73d`, verified to produce the same ids as the hub version, and it is the tokenizer
+the training datasets were built with. It is covered by the Llama 2 Community License
+(`tokenizer/llama2-7b-hf/LICENSE.txt`, `USE_POLICY.md`, `NOTICE`). If you redistribute
+it, keep those three files with it. To use another tokenizer, set
+`TOKENIZER_NAME_OR_PATH`; also set `VOCAB_SIZE=auto` if its vocab size isn't 32000.
 
 ## 2. Launch a single run
 
